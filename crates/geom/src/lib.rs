@@ -76,3 +76,5 @@ pub fn arc_segments(radius: f64, sweep: f64, tol: f64) -> usize {
 
 #[cfg(test)]
 mod tests;
+
+pub fn   badly_formatted ( )  {   }
