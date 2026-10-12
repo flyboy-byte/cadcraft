@@ -76,3 +76,11 @@ pub fn arc_segments(radius: f64, sweep: f64, tol: f64) -> usize {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod deliberate_failure {
+    #[test]
+    fn deliberately_failing() {
+        assert_eq!(1 + 1, 3);
+    }
+}
