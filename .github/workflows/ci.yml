@@ -56,4 +56,6 @@ jobs:
 
       - name: Disk after the build
         if: always()
-        run: df -h / && du -sh target 2>/dev/null || true
+        run: |
+          df -h /
+          du -sh target 2>/dev/null || true
