@@ -1,0 +1,7 @@
+[mcp_servers.cadcraft]
+command = "/home/logan/cadcraft/target/release/cadcraft-cli"
+args = [
+    "mcp",
+    "--connect",
+    "127.0.0.1:7979",
+]

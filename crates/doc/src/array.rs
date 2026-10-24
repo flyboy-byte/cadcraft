@@ -249,6 +249,11 @@ impl ArrayParams {
         }
         let n = usize::try_from(self.item_count()).ok()?;
         let mut out = Vec::with_capacity(n);
+        // A path's placement does not depend on the level: build it once, not once per level.
+        let path_placed = match &self.kind {
+            ArrayKind::Path(p) => Some(p.placed()?),
+            _ => None,
+        };
         for level in 0..self.levels {
             let lz = self.level_spacing * f64::from(level);
             match &self.kind {
@@ -261,9 +266,9 @@ impl ArrayParams {
                         }
                     }
                 }
-                ArrayKind::Path(p) => {
-                    for (i, (at, rotation)) in p.placed()?.into_iter().enumerate() {
-                        out.push(ArrayItem { i: u32::try_from(i).ok()?, j: 0, level, insert: at.to3(lz), rotation });
+                ArrayKind::Path(_) => {
+                    for (i, (at, rotation)) in path_placed.iter().flatten().enumerate() {
+                        out.push(ArrayItem { i: u32::try_from(i).ok()?, j: 0, level, insert: at.to3(lz), rotation: *rotation });
                     }
                 }
                 ArrayKind::Polar(p) => {
@@ -492,5 +497,34 @@ mod tests {
         assert!(path(&[(0.0, 0.0), (1.0, 0.0)], false, u32::MAX, true, 0.0, true).items().is_none());
         let long: Vec<(f64, f64)> = (0..=MAX_PATH_POINTS).map(|i| (i as f64, 0.0)).collect();
         assert!(!path(&long, false, 3, true, 0.0, true).is_valid());
+    }
+
+    #[test]
+    fn hostile_path_with_many_levels_places_the_path_once() {
+        // 20,000 vertices, one item per level, 100,000 levels: every limit holds on its own,
+        // and rebuilding the path for each level would visit about 2e9 segments.
+        let long: Vec<(f64, f64)> = (0..MAX_PATH_POINTS).map(|i| (i as f64, 0.0)).collect();
+        let mut p = path(&long, false, 1, true, 0.0, true);
+        p.levels = 100_000;
+        p.level_spacing = 1.0;
+        let started = std::time::Instant::now();
+        let items = p.items().unwrap_or_default();
+        assert!(started.elapsed() < std::time::Duration::from_secs(5), "took {:?}", started.elapsed());
+        assert_eq!(items.len(), 100_000);
+        assert!(items.iter().enumerate().all(|(l, i)| i.level as usize == l && i.insert.xy() == Vec2::ZERO));
+    }
+
+    #[test]
+    fn path_levels_repeat_the_same_placement() {
+        let mut p = path(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)], false, 3, true, 0.0, true);
+        p.levels = 3;
+        p.level_spacing = 2.0;
+        let items = p.items().unwrap_or_default();
+        assert_eq!(items.len(), 9);
+        for (k, item) in items.iter().enumerate() {
+            let first = items.get(k % 3).copied();
+            assert_eq!(Some((item.insert.xy(), item.rotation)), first.map(|f| (f.insert.xy(), f.rotation)));
+            assert_eq!(item.insert.z, 2.0 * (k / 3) as f64);
+        }
     }
 }
